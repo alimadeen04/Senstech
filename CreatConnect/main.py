@@ -4,7 +4,7 @@ main.py - Entry point for CreatConnect App
 # installing kivy packages/dependencies: pip install kivy kivy-ios matplotlib pandas requests
 
 from kivy.app import App
-from ui import CreatConnectUI  
+from user_interface import CreatConnectUI 
 
 
 class CreatConnectApp(App):
