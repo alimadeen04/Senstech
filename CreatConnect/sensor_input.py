@@ -14,5 +14,5 @@ def read_sensor_data():
     You can later replace this with real sensor reading logic (BLE or Serial).
     """
     reflectivity = random.uniform(0.1, 1.0)
-    creatinine = round(0.8 + 0.5 * reflectivity, 2)
+    creatinine = round(0.5 + 1.5 * reflectivity, 2)
     return creatinine
