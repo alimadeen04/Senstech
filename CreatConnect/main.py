@@ -1,15 +1,48 @@
 '''
 main.py - Entry point for CreatConnect App
-''' 
-# installing kivy packages/dependencies: pip install kivy kivy-ios matplotlib pandas requests
-
+'''
 from kivy.app import App
-from user_interface import CreatConnectUI 
+from kivy.uix.screenmanager import ScreenManager, Screen
+from kivy.core.window import Window
+from kivy.core.text import LabelBase # Import LabelBase for font registration
 
+from menu_screen import MenuScreen # Ensure this file and class exist
+from user_interface import CreatConnectUI # The main sensor UI
+from visual import VisualScreen # Ensure this file and class exist
 
+PAPER_COLOR = (0.95, 0.95, 0.9, 1) # Slightly off-white for paper
+Window.clearcolor = PAPER_COLOR
+LabelBase.register(name="Roboto", fn_regular="ArchitectsDaughter.ttf")
+    
 class CreatConnectApp(App):
     def build(self):
-        return CreatConnectUI()
-    
+        # Initialize the list to store all creatinine readings as an instance attribute.
+        self.all_creatinine_readings = []
+
+
+        # Create the screen manager
+        sm = ScreenManager()
+
+        # Create the Menu Screen (This will be the home screen)
+        menu_screen = Screen(name='menu_screen')
+        menu_screen.add_widget(MenuScreen()) # MenuScreen should be defined in menu_screen.py
+        sm.add_widget(menu_screen)
+
+        # Create the Sensor Graph Screen (your original UI)
+        sensor_graph_screen = Screen(name='sensor_graph_screen')
+        sensor_graph_screen.add_widget(CreatConnectUI())
+        sm.add_widget(sensor_graph_screen)
+
+        # Create the Visual Screen
+        visual_screen = Screen(name='visual_screen')
+        visual_screen.add_widget(VisualScreen()) # VisualScreen should be defined in visual.py
+        sm.add_widget(visual_screen)
+
+
+        # Set the initial screen to the menu
+        sm.current = 'menu_screen'
+
+        return sm
+
 if __name__ == "__main__":
     CreatConnectApp().run()
