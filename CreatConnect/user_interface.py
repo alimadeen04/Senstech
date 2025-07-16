@@ -94,7 +94,7 @@ class CreatConnectUI(BoxLayout):
         # Create a layout inside the card to manage status and creatinine labels
         status_creatinine_layout = BoxLayout(orientation='vertical', spacing=5)
         
-        self.status_label = Label(text="[b][color=000000]Status:[/color][/b] [b][color=00aa00]Normal[/color][/b]",
+        self.status_label = Label(text="[b][color=000000]Status:[/color][/b] [b][color=00aa00] [/color][/b]",
             markup=True, font_size='18sp', size_hint_y=None, height=40)
         self.status_label.bind(size=self.status_label.setter('text_size'))
         status_creatinine_layout.add_widget(self.status_label)
@@ -120,6 +120,13 @@ class CreatConnectUI(BoxLayout):
         self.readings = []
         self.timestamps = []
         self.start_time = time.time()
+
+        # Attributes for Data
+        self.simulated_df = None
+        self.sim_index = 0
+        self.sim_total_steps = 120
+        self.sim_timer = None
+
         # --- END CONSOLIDATED INITIALIZATION ---
         
         # Schedule the first update immediately, then every 30 seconds
@@ -137,64 +144,110 @@ class CreatConnectUI(BoxLayout):
             print("Error: Could not access ScreenManager to switch screen.")
 
     def update_sensor_reading(self, instance=None):
-        reading = 0.0
-        print("Attempting to read sensor data...")
-        try:
-            reading = sensor_input.read_sensor_data()
-            print(f"Successfully read sensor data: {reading}")
-        except Exception as e:
-            print(f"Error in sensor_input.read_sensor_data(): {e}. Using mock data.")
-            import random
-            reading = round(random.uniform(0.6, 1.3), 2)
-            if random.random() < 0.05:
-                reading = round(random.uniform(1.5, 2.5), 2)
-            elif random.random() < 0.02:
-                reading = round(random.uniform(0.3, 0.5), 2)
+        from sensor_input import read_simulated_sensor_data
+        sim_result = read_simulated_sensor_data()
+        self.simulated_df = sim_result["data"]
+        self.sim_index = 0
+        self.sim_total_steps = len(self.simulated_df)
+        self.creatinine_peak = sim_result["creatinine"]
+        self.peak_status = sim_result["status"]
+        self.file_used = sim_result["file"]
 
-        # Update creatinine_label text here, now that 'reading' is defined
-        self.creatinine_label.text = f"[b][color=000000]Creatinine: {reading} mg/dL[/b]"
-        
-        status = "Normal"
-        color = "00aa00"
-        
-        # Build the breakdown message dynamically
-        breakdown_text = "[b]Breakdown:[/b]\n" # Start with the bold "Breakdown:" header
+        self.readings = []
+        self.timestamps = []
+        self.start_time = time.time()
 
-        if reading > 1.3:
-            status = "High"
-            color = "ff9900"
-            breakdown_text += "• Your creatinine levels are [color=ff9900]higher than normal[/color].\n" \
-                                 "• Consult a healthcare professional for further evaluation."
-            
-        elif reading < 0.6:
-            status = "Low"
+        # Clear graph
+        self.graph.clear()
+        # Schedule 1 update/sec (or adjust for faster animation)
+        self.sim_timer = Clock.schedule_interval(self._plot_next_sim_point, 1)
+
+    def _plot_next_sim_point(self, dt):
+        if self.sim_index >= self.sim_total_steps:
+            Clock.unschedule(self.sim_timer)
+            self.sim_timer = None
+
+            self._finalize_sensor_reading()
+            return
+
+        value = self.simulated_df.iloc[self.sim_index]["Sensor Reading"] * 1.75  # Convert to creatinine
+        timestamp = self.sim_index
+
+        self.readings.append(value)
+        self.timestamps.append(timestamp)
+
+        self.graph.update_graph(self.timestamps, self.readings)
+        self.sim_index += 1
+
+    def _finalize_sensor_reading(self):
+        peak_value = max(self.readings)
+        self.creatinine_label.text = f"[b][color=000000]Creatinine: {peak_value:.2f} mg/dL[/color][/b]"
+
+        if peak_value < 0.6:
             color = "cc0000"
-            breakdown_text += "• Your creatinine levels are [color=cc0000]lower than normal[/color].\n" \
-                                 "• Consult a healthcare professional for further evaluation."
-        else: # Normal range
-            breakdown_text += "• Your creatinine levels are within the normal range.\n" \
-                                 "• No immediate abnormalities detected.\n" \
-                                 "• Continue monitoring as advised by your doctor."
+            status = "Low"
+        elif peak_value <= 1.3:
+            color = "00aa00"
+            status = "Normal"
+        else:
+            color = "ff9900"
+            status = "High"
 
         self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b][color={color}]{status}[/color][/b]"
-        
-        # Update the text of the existing breakdown_label
-        self.breakdown_label.text = breakdown_text 
 
-        current_time = round(time.time() - self.start_time, 2)
-        self.readings.append(reading) # Ensure reading is added here
-        self.timestamps.append(current_time)
-
-        self.graph.update_graph(self.timestamps[-60:], self.readings[-60:])
-
+        # Save data for syncing
         app = App.get_running_app()
-        if hasattr(app, 'all_creatinine_readings'):
-            print(self.readings)
-            app.all_creatinine_readings = (self.readings)
-            print(app.all_creatinine_readings)
-        else:
-            print("Warning: all_creatinine_readings not found on app instance.")
-        sm = app.root
+        app.all_creatinine_readings = [peak_value]  # Overwrite with new peak
+
+        # Trigger homepage update
+        Clock.schedule_once(self._trigger_menu_status_update, 0)
+
+        # Save the graph image
+        self.graph.export_to_png(f"history_logs/{self.file_used}_graph.png")  # create this folder if needed
+
+    def start_real_time_plotting(self, dt):
+        app = App.get_running_app()
+        self.readings = []
+        self.timestamps = []
+        self.start_time = time.time()
+        self.sim_index = 0
+        self.sim_df = app.simulated_df
+        self.sim_timer = Clock.schedule_interval(self.plot_next_point, 1)
+
+    def plot_next_point(self, dt):
+        if self.sim_index >= len(self.sim_df):
+            Clock.unschedule(self.sim_timer)
+            self.finish_plotting()
+            return
+
+        raw_val = self.sim_df.iloc[self.sim_index]["Sensor Reading"]
+        creatinine = raw_val * 1.75
+
+        self.readings.append(creatinine)
+        self.timestamps.append(self.sim_index)
+
+        self.graph.update_graph(self.timestamps, self.readings)
+        self.sim_index += 1
+
+    def finish_plotting(self):
+        app = App.get_running_app()
+        peak_val = max(self.readings)
+
+        # Update Sensor Graph screen
+        self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b]{app.sim_status}[/b]"
+        self.creatinine_label.text = f"[b][color=000000]Creatinine: {peak_val:.2f} mg/dL[/color][/b]"
+
+        # Save graph image
+        filename = f"{app.simulated_file}_graph.png"
+        self.graph.export_to_png(f"history_logs/{filename}")
+
+        # Store final value
+        app.all_creatinine_readings = [peak_val]
+
+        # Update homepage
+        Clock.schedule_once(self._trigger_menu_status_update, 0)
+
+       
     def _trigger_menu_status_update(self, dt):
         # This method runs after the main Kivy build process
         app = App.get_running_app()

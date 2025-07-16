@@ -28,7 +28,7 @@ class CreatinineGraph(BoxLayout):
             x_grid=True,
             y_grid=True,
             xmin=0,
-            xmax=60,
+            xmax=120,
             ymin=0.0,
             ymax=3.0,
             background_color = (1,1,1,1),

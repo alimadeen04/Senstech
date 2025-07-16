@@ -11,6 +11,7 @@ from kivy.app import App
 from kivy.clock import Clock
 from kivy.properties import StringProperty 
 from kivy.core.text import Label as CoreLabel
+import time
 
 # --- Configuration for Sketch Style ---
 SKETCH_LINE_WIDTH = 1.5
@@ -296,7 +297,7 @@ class MenuScreen(BoxLayout):
         # "Read Sensor" Button (mock, no actual reading here)
         read_sensor_btn = SketchButton(text="[b]Read Sensor[/b]", markup=True, size_hint=(1, None),
                                         height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
-        read_sensor_btn.bind(on_release=self.update_menu_status)
+        read_sensor_btn.bind(on_release=self.start_sensor_simulation)
         left_panel.add_widget(read_sensor_btn)
 
         content_layout.add_widget(left_panel)
@@ -352,6 +353,29 @@ class MenuScreen(BoxLayout):
         # Bind to screen entry to update status
         self.bind(on_kv_post=self._on_kv_post) # This event fires when the widget is fully built and added
 
+    def start_sensor_simulation(self, instance):
+        from sensor_input import read_simulated_sensor_data
+        app = App.get_running_app()
+
+        # Load simulated data
+        result = read_simulated_sensor_data()
+        app.simulated_df = result["data"]
+        app.simulated_file = result["file"]
+        app.sim_creatinine = result["creatinine"]
+        app.sim_status = result["status"]
+        app.sim_peak_signal = result["peak_signal"]
+
+        app.sim_index = 0
+        app.sim_start_time = time.time()
+
+        # Navigate to Sensor Graph screen
+        app.root.current = 'sensor_graph_screen'
+
+        # Start simulation on the Sensor Graph screen
+        Clock.schedule_once(app.root.get_screen('sensor_graph_screen').children[0].start_real_time_plotting, 0)
+
+
+
     def reset_sensor_readings(self, instance):
         app = App.get_running_app()
     
@@ -362,8 +386,6 @@ class MenuScreen(BoxLayout):
         self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] . . ."
         self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]Breakdown: No data yet.[/color]"
         self.status_bar.current_status_category = 'none'
-
-        print("Sensor readings reset. Status and visuals cleared.")
 
     def _on_kv_post(self, instance):
         # Schedule update to happen after the widget is fully laid out

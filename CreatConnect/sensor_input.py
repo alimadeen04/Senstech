@@ -22,7 +22,7 @@ def read_simulated_sensor_data():
     peak_sensor_value = df["Sensor Reading"].max()
 
     # Convert to creatinine (replace 1.75 with real calibration factor!!!!!)
-    creatinine = peak_sensor_value * 1.75
+    creatinine = peak_sensor_value
 
     # Categorize
     if creatinine < 0.6:
