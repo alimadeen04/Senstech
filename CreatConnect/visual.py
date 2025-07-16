@@ -262,11 +262,6 @@ class CreatConnectUI(BoxLayout):
         header_layout.add_widget(self.creatinine_label)
         self.add_widget(header_layout)
 
-        # Read Sensor Button
-        self.read_button = SketchButton(text="[b]Read Sensor[/b]", markup=True, size_hint=(1, None), height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
-        self.add_widget(self.read_button)
-        self.read_button.bind(on_press=self.update_sensor_reading)
-
         # Graph and Status Bar Layout
         graph_and_bar_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.6)) # Adjusted size_hint for graph area
         self.graph = CreatinineGraph(size_hint=(0.8, 1)) # Graph takes 80% of the horizontal space
@@ -277,24 +272,6 @@ class CreatConnectUI(BoxLayout):
         graph_and_bar_layout.add_widget(status_bar_container)
         self.add_widget(graph_and_bar_layout)
 
-        # Breakdown Label
-        breakdown_text = "[b]Breakdown:[/b]\n" \
-                         "• Your creatinine levels are within the normal range.\n" \
-                         "• No abnormalities detected.\n" \
-                         "• Last 7 days trending normal."
-        breakdown_label = Label(text=f"[color={SKETCH_COLOR_HEX}]{breakdown_text}[/color]", markup=True, font_size='15sp', font_name=HANDWRITTEN_FONT, halign='left', valign='top', size_hint_y=None, height=dp(100))
-        breakdown_label.bind(size=breakdown_label.setter('text_size'))
-        self.add_widget(breakdown_label)
-
-        # Action Buttons (Toggle and Share)
-        actions_layout = BoxLayout(orientation='horizontal', size_hint_y=None, height=dp(50), spacing=dp(10))
-        self.toggle_trend = SketchButton(text="[b]Toggle Trend Line[/b]", markup=True, size_hint=(0.5, 1), font_size='16sp', font_name=HANDWRITTEN_FONT)
-        self.toggle_trend.bind(on_press=self.toggle_trend_line)
-        actions_layout.add_widget(self.toggle_trend)
-        self.share_button = SketchButton(text="[b]Share w/ Doctor[/b]", markup=True, size_hint=(0.5, 1), font_size='18sp', font_name=HANDWRITTEN_FONT)
-        self.share_button.bind(on_press=self.share_with_doctor)
-        actions_layout.add_widget(self.share_button)
-        self.add_widget(actions_layout)
 
         # For graph data tracking
         self.time_elapsed = []
@@ -307,9 +284,6 @@ class CreatConnectUI(BoxLayout):
         self.readings = []
         self.timestamps = []
         self.start_time = time.time()
-        
-    def toggle_trend_line(self, instance):
-        print("Trend line toggle clicked (feature not implemented yet)")
 
     def update_sensor_reading(self, instance):
         try:

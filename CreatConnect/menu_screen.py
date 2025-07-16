@@ -301,6 +301,13 @@ class MenuScreen(BoxLayout):
 
         content_layout.add_widget(left_panel)
 
+        # Reset Button
+        reset_btn = SketchButton(text="[b]Reset Sensor[/b]", markup=True, size_hint=(1, None),
+                         height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
+        reset_btn.bind(on_release=self.reset_sensor_readings)
+        left_panel.add_widget(reset_btn)
+
+
 
         # Right side: Menu Options
         menu_options_layout = BoxLayout(orientation='vertical', size_hint=(0.4, .4), spacing=dp(15), padding=(dp(10), dp(0), dp(10), dp(0)))
@@ -344,6 +351,19 @@ class MenuScreen(BoxLayout):
 
         # Bind to screen entry to update status
         self.bind(on_kv_post=self._on_kv_post) # This event fires when the widget is fully built and added
+
+    def reset_sensor_readings(self, instance):
+        app = App.get_running_app()
+    
+        # Clear readings
+        app.all_creatinine_readings.clear()
+
+        # Reset labels and status color bar
+        self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] . . ."
+        self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]Breakdown: No data yet.[/color]"
+        self.status_bar.current_status_category = 'none'
+
+        print("Sensor readings reset. Status and visuals cleared.")
 
     def _on_kv_post(self, instance):
         # Schedule update to happen after the widget is fully laid out

@@ -109,32 +109,12 @@ class CreatConnectUI(BoxLayout):
         status_creatinine_card.add_widget(status_creatinine_layout)
         self.add_widget(status_creatinine_card) # Add the card containing status and creatinine
 
-        # Read Sensor Button
-        self.read_button = Button(text="[b]Read Sensor[/b]",
-             markup=True, size_hint=(1, None), height=50, background_normal='', background_color=(0.2, 0.6, 1, 1),
-             color=(1, 1, 1, 1), font_size='18sp')
-        self.read_button.bind(on_press=self.update_sensor_reading)
-        self.add_widget(self.read_button)
 
         # Graph (inside its own StyleCard)
         graph_card = StyleCard(size_hint=(1, 1)) # Graph takes remaining vertical space
         self.graph = CreatinineGraph(size_hint=(1,1))
         graph_card.add_widget(self.graph)
         self.add_widget(graph_card)
-
-        # Notes/Breakdown Label - Initialize here once
-        self.breakdown_label = Label(text="[b]Breakdown:[/b]\n" # Initial static text
-                                 "• Data not yet available.\n"
-                                 "• Click 'Read Sensor' or wait for auto-update.", markup = True, color=(0,0,0,1), font_size='15sp', halign='left', valign='top',
-                                 size_hint_y=None, height=120)
-        self.breakdown_label.bind(size=self.breakdown_label.setter('text_size'))
-        self.add_widget(self.breakdown_label)
-
-        # Button to toggle trend line
-        self.toggle_trend = Button(text="[b]Toggle Trend Line[/b]", markup=True, size_hint=(1, None), height=50, background_normal='',
-                                   background_color=(0.2, 0.6, 1, 1), color=(1,1,1,1), font_size='16sp')
-        self.toggle_trend.bind(on_press=self.toggle_trend_line)
-        self.add_widget(self.toggle_trend)
 
         # --- CONSOLIDATED GRAPH DATA TRACKING INITIALIZATION ---
         self.readings = []
