@@ -1,7 +1,5 @@
 '''
-user_interface.py - User Interface for CreatConnect App
-
-Manages UI layout, buttons, labels, and graph plotting.
+user_interface.py - sensor graph screen UI
 '''
 
 from kivy.uix.boxlayout import BoxLayout
@@ -197,13 +195,13 @@ class CreatConnectUI(BoxLayout):
 
         # Save data for syncing
         app = App.get_running_app()
-        app.all_creatinine_readings = [peak_value]  # Overwrite with new peak
+        app.all_creatinine_readings = [peak_value]
 
-        # Trigger homepage update
-        Clock.schedule_once(self._trigger_menu_status_update, 0)
+        def delayed_screen_switch(dt):
+            app.root.current = 'menu_screen'
+            Clock.schedule_once(self._trigger_menu_status_update, 0.2)
 
-        # Save the graph image
-        self.graph.export_to_png(f"history_logs/{self.file_used}_graph.png")  # create this folder if needed
+        Clock.schedule_once(delayed_screen_switch, 0.5)
 
     def start_real_time_plotting(self, dt):
         app = App.get_running_app()
@@ -233,8 +231,18 @@ class CreatConnectUI(BoxLayout):
         app = App.get_running_app()
         peak_val = max(self.readings)
 
+        if peak_val < 0.6:
+            color = "cc0000"
+            status = "Low"
+        elif peak_val <= 1.3:
+            color = "00aa00"
+            status = "Normal"
+        else:
+            color = "ff9900"
+            status = "High"
+
         # Update Sensor Graph screen
-        self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b]{app.sim_status}[/b]"
+        self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b][color={color}]{status}[/color][/b]"
         self.creatinine_label.text = f"[b][color=000000]Creatinine: {peak_val:.2f} mg/dL[/color][/b]"
 
         # Save graph image
@@ -244,37 +252,34 @@ class CreatConnectUI(BoxLayout):
         # Store final value
         app.all_creatinine_readings = [peak_val]
 
-        # Update homepage
-        Clock.schedule_once(self._trigger_menu_status_update, 0)
+        def switch_and_update(dt):
+            print("✅ Switching to menu screen from finish_plotting")
+            app.root.current = 'menu_screen'
+            Clock.schedule_once(self._trigger_menu_status_update, 0.2)
+
+        Clock.schedule_once(switch_and_update, 0.5) 
 
        
     def _trigger_menu_status_update(self, dt):
-        # This method runs after the main Kivy build process
         app = App.get_running_app()
-        sm = app.root # Now app.root should be the ScreenManager
+        sm = app.root
 
-        # Check if sm is not None before accessing its attributes
-        if sm and sm.current == 'menu_screen':
-            # Dynamically import menu_screen here, as it's only needed if this branch is taken
-            import importlib
-            menu_screen_module = importlib.import_module('menu_screen')
-            
-            # Ensure we get the correct MenuScreen instance
-            # It's usually the first child of the Screen object named 'menu_screen'
-            menu_screen_widget = sm.get_screen('menu_screen').children[0]
-            
-            if isinstance(menu_screen_widget, menu_screen_module.MenuScreen):
-                menu_screen_widget.update_menu_status()
+        if sm and hasattr(sm, 'get_screen'):
+            menu_screen = sm.get_screen('menu_screen')
+            if hasattr(menu_screen, 'children') and len(menu_screen.children) > 0:
+                menu_widget = menu_screen.children[0]
+                if hasattr(menu_widget, 'update_menu_status'):
+                    print("✅ Calling update_menu_status()")
+                    menu_widget.update_menu_status()
+                else:
+                    print("❌ menu_widget has no method update_menu_status")
             else:
-                print("Warning: Could not get MenuScreen instance to update status.")
-        elif not sm:
-            print("Debug: app.root (ScreenManager) is still None when _trigger_menu_status_update was called.")
+                print("❌ menu_screen.children is empty or missing")
+        else:
+            print("❌ Could not access ScreenManager")
 
 
-    # def auto_update_sensor() --> Automatically fetches new data every 30 seconds
-     #   Clock.schedule_interval(self.update_sensor_reading, 30)
 
-    # def update_graph() --> Updates the graph with new readings
 
 
 

@@ -12,6 +12,7 @@ from kivy.clock import Clock
 from kivy.properties import StringProperty 
 from kivy.core.text import Label as CoreLabel
 import time
+from graph import CreatinineGraph
 
 # --- Configuration for Sketch Style ---
 SKETCH_LINE_WIDTH = 1.5
@@ -386,6 +387,14 @@ class MenuScreen(BoxLayout):
         self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] . . ."
         self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]Breakdown: No data yet.[/color]"
         self.status_bar.current_status_category = 'none'
+        try:
+            sensor_screen_widget = app.root.get_screen('sensor_graph_screen').children[0]
+            sensor_screen_widget.graph.clear()
+            sensor_screen_widget.status_label.text = "[b][color=000000]Status:[/color][/b] [b]--[/b]"
+            sensor_screen_widget.creatinine_label.text = "[b][color=000000]Creatinine: -- mg/dL[/color][/b]"
+            print("✅ Sensor graph screen cleared.")
+        except Exception as e:
+            print(f"❌ Failed to clear sensor screen: {e}")
 
     def _on_kv_post(self, instance):
         # Schedule update to happen after the widget is fully laid out

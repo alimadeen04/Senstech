@@ -42,3 +42,6 @@ class CreatinineGraph(BoxLayout):
 
     def update_graph(self, x_vals, y_vals):
         self.plot.points = list(zip(x_vals, y_vals))
+
+    def clear(self):
+        self.plot.points = []
