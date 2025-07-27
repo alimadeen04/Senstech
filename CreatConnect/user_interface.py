@@ -193,12 +193,20 @@ class CreatConnectUI(BoxLayout):
 
         self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b][color={color}]{status}[/color][/b]"
 
-        # Save data for syncing
+        # Save data for syncing - append to existing readings
         app = App.get_running_app()
-        app.all_creatinine_readings = [peak_value]
+        if not hasattr(app, 'all_creatinine_readings'):
+            app.all_creatinine_readings = []
+        app.all_creatinine_readings.append(peak_value)
+        
+        # Debug print to verify readings are being accumulated
+        print(f"✅ _finalize_sensor_reading - Added reading: {peak_value:.2f} mg/dL")
+        print(f"✅ _finalize_sensor_reading - Total readings in history: {len(app.all_creatinine_readings)}")
+        print(f"✅ _finalize_sensor_reading - All readings: {app.all_creatinine_readings}")
 
         def delayed_screen_switch(dt):
-            app.root.current = 'menu_screen'
+            print("✅ Reading completed - staying on current screen")
+            # Update menu status without switching screens
             Clock.schedule_once(self._trigger_menu_status_update, 0.2)
 
         Clock.schedule_once(delayed_screen_switch, 0.5)
@@ -249,13 +257,22 @@ class CreatConnectUI(BoxLayout):
         filename = f"{app.simulated_file}_graph.png"
         self.graph.export_to_png(f"history_logs/{filename}")
 
-        # Store final value
-        app.all_creatinine_readings = [peak_val]
+        # Store final value - append to existing readings
+        if not hasattr(app, 'all_creatinine_readings'):
+            app.all_creatinine_readings = []
+        app.all_creatinine_readings.append(peak_val)
+        
+        # Debug print to verify readings are being accumulated
+        print(f"✅ Added reading: {peak_val:.2f} mg/dL")
+        print(f"✅ Total readings in history: {len(app.all_creatinine_readings)}")
+        print(f"✅ All readings: {app.all_creatinine_readings}")
 
         def switch_and_update(dt):
-            print("✅ Switching to menu screen from finish_plotting")
-            app.root.current = 'menu_screen'
+            print("✅ Reading completed - staying on current screen")
+            # Update menu status and history log without switching screens
             Clock.schedule_once(self._trigger_menu_status_update, 0.2)
+            # Update history log if it exists
+            Clock.schedule_once(self._update_history_log, 0.3)
 
         Clock.schedule_once(switch_and_update, 0.5) 
 
@@ -277,6 +294,28 @@ class CreatConnectUI(BoxLayout):
                 print("❌ menu_screen.children is empty or missing")
         else:
             print("❌ Could not access ScreenManager")
+
+    def _update_history_log(self, dt):
+        """Update history log screen with new reading"""
+        app = App.get_running_app()
+        sm = app.root
+
+        if sm and hasattr(sm, 'get_screen'):
+            try:
+                history_screen = sm.get_screen('history_log_screen')
+                if hasattr(history_screen, 'children') and len(history_screen.children) > 0:
+                    history_widget = history_screen.children[0]
+                    if hasattr(history_widget, 'load_history'):
+                        print("✅ Updating history log with new reading")
+                        history_widget.load_history()
+                    else:
+                        print("❌ history_widget has no method load_history")
+                else:
+                    print("❌ history_screen.children is empty or missing")
+            except Exception as e:
+                print(f"❌ Error updating history log: {e}")
+        else:
+            print("❌ Could not access ScreenManager for history log update")
 
 
 

@@ -5,7 +5,7 @@ from kivy.uix.label import Label
 from kivy.uix.image import Image
 from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.widget import Widget
-from kivy.graphics import Color, Rectangle, Line
+from kivy.graphics import Color, Rectangle, Line, Ellipse
 from kivy.metrics import dp
 from kivy.app import App
 from kivy.clock import Clock
@@ -14,27 +14,79 @@ from kivy.core.text import Label as CoreLabel
 import time
 from graph import CreatinineGraph
 
+# Constants
+SKETCH_COLOR = (0.2, 0.2, 0.2, 1)  # Dark grey for sketch lines
+SKETCH_COLOR_HEX = "333333"
+HANDWRITTEN_FONT = "Exo2-Bold.otf"
+
+def rgb_to_hex(rgb_tuple):
+    """Convert RGB tuple to hex string"""
+    r, g, b, a = rgb_tuple
+    return f"{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
+
+# Status highlight colors
+STATUS_HIGHLIGHT_HIGH_COLOR = (1, 0, 0, 0.3)  # Red with transparency
+STATUS_HIGHLIGHT_NORMAL_COLOR = (0, 1, 0, 0.3)  # Green with transparency  
+STATUS_HIGHLIGHT_LOW_COLOR = (1, 0.5, 0, 0.3)  # Orange with transparency
+STATUS_HIGHLIGHT_NONE_COLOR = (0, 0, 0, 0)  # Transparent
+
+# Sketch line width
+SKETCH_LINE_WIDTH = 2
+
+class NavButton(BoxLayout):
+    def __init__(self, text, icon, callback, **kwargs):
+        super().__init__(orientation='vertical', spacing=dp(5), **kwargs)
+        
+        # Icon image (if provided) or text emoji
+        if icon and icon.endswith('.png'):
+            # Use image icon with centering
+            icon_container = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, None), height=dp(24))
+            icon_widget = Image(source=icon, size_hint=(None, None), size=(dp(24), dp(24)))
+            icon_container.add_widget(icon_widget)
+            self.add_widget(icon_container)
+        else:
+            # Use text emoji
+            icon_label = Label(text=icon, font_size='16sp', size_hint=(1, None), height=dp(24))
+            self.add_widget(icon_label)
+        
+        # Text label
+        text_label = Label(text=text, font_size='12sp', font_name='Roboto', color=(0.5, 0.5, 0.5, 1), 
+                          size_hint=(1, None), height=dp(20))
+        
+        self.add_widget(text_label)
+        
+        # Make clickable
+        self.bind(on_touch_down=self._on_touch_down)
+        self.callback = callback
+    
+    def _on_touch_down(self, instance, touch):
+        if self.collide_point(*touch.pos):
+            if self.callback:
+                self.callback(self)
+            return True
+        return False
+
 # --- Configuration for Sketch Style ---
-SKETCH_LINE_WIDTH = 1.5
-SKETCH_COLOR = (0.2, 0.2, 0.2, 1)
-PAPER_COLOR = (0.95, 0.95, 0.9, 1)
-HIGHLIGHT_COLOR = (0.5, 0.7, 0.9, 1) 
+# SKETCH_LINE_WIDTH = 1.5
+# SKETCH_COLOR = (0.2, 0.2, 0.2, 1)
+# PAPER_COLOR = (0.95, 0.95, 0.9, 1)
+# HIGHLIGHT_COLOR = (0.5, 0.7, 0.9, 1) 
 
 # Define specific highlight colors for the status bar
-STATUS_HIGHLIGHT_HIGH_COLOR = (0.8, 0.2, 0.2, 0.5) # Semi-transparent Red
-STATUS_HIGHLIGHT_NORMAL_COLOR = (0.2, 0.7, 0.2, 0.5) # Semi-transparent Green
-STATUS_HIGHLIGHT_LOW_COLOR = (0.9, 0.5, 0.1, 0.5) # Semi-transparent Orange/Yellow
-STATUS_HIGHLIGHT_NONE_COLOR = (0.0, 0.0, 0.0, 0.0) # Fully transparent when no highlight
+# STATUS_HIGHLIGHT_HIGH_COLOR = (0.8, 0.2, 0.2, 0.5) # Semi-transparent Red
+# STATUS_HIGHLIGHT_NORMAL_COLOR = (0.2, 0.7, 0.2, 0.5) # Semi-transparent Green
+# STATUS_HIGHLIGHT_LOW_COLOR = (0.9, 0.5, 0.1, 0.5) # Semi-transparent Orange/Yellow
+# STATUS_HIGHLIGHT_NONE_COLOR = (0.0, 0.0, 0.0, 0.0) # Fully transparent when no highlight
 
 # Helper to convert RGB tuple to hex string for Kivy markup
-def rgb_to_hex(rgb_tuple):
-    return f"{int(rgb_tuple[0]*255):02x}{int(rgb_tuple[1]*255):02x}{int(rgb_tuple[2]*255):02x}"
+# def rgb_to_hex(rgb_tuple):
+#     return f"{int(rgb_tuple[0]*255):02x}{int(rgb_tuple[1]*255):02x}{int(rgb_tuple[2]*255):02x}"
 
-SKETCH_COLOR_HEX = rgb_to_hex(SKETCH_COLOR)
-HIGHLIGHT_COLOR_HEX = rgb_to_hex(HIGHLIGHT_COLOR)
+# SKETCH_COLOR_HEX = rgb_to_hex(SKETCH_COLOR)
+# HIGHLIGHT_COLOR_HEX = rgb_to_hex(HIGHLIGHT_COLOR)
 
 # Set default font 
-HANDWRITTEN_FONT = 'Roboto'
+# HANDWRITTEN_FONT = 'Roboto'
 
 # --- Custom SketchButton Widget ---
 class SketchButton(Button):
@@ -85,7 +137,7 @@ class SketchButton(Button):
             )
 
         if self.state == 'down':
-            self.sketch_color.rgb = HIGHLIGHT_COLOR
+            self.sketch_color.rgb = (0.5, 0.7, 0.9) # Example highlight color
         else:
             self.sketch_color.rgb = SKETCH_COLOR
 
@@ -263,93 +315,93 @@ class MenuScreen(BoxLayout):
         super().__init__(orientation='vertical', spacing=dp(15), padding=dp(15), **kwargs)
 
         # Title and Logo section
-        title_section = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(100), padding=[dp(10), dp(0)], spacing=dp(5))
-        logo_container = AnchorLayout(anchor_x="left", anchor_y="center", size_hint=(None, 1), width=dp(220))
+        title_section = BoxLayout(orientation='vertical', size_hint=(1, None), height=dp(120), padding=[dp(10), dp(0)], spacing=dp(5))
+        logo_container = AnchorLayout(anchor_x="left", anchor_y="center", size_hint=(1, None), height=dp(80))
         logo = Image(source='FinalLogo.png', size_hint=(None,None), size=(dp(220),dp(80)))
         logo_container.add_widget(logo)
         title_section.add_widget(logo_container) 
-        self.title_label = Label(text="CreatConnect", font_size='35sp', font_name=HANDWRITTEN_FONT,
-                                     halign='left', valign='middle', color=SKETCH_COLOR, size_hint=(1, 1))
+        self.title_label = Label(text="CreatConnect", font_size='24sp', font_name='Roboto',
+                                     halign='left', valign='middle', color=SKETCH_COLOR, size_hint=(1, None), height=dp(30))
         self.title_label.bind(size=self.title_label.setter('text_size'))
         title_section.add_widget(self.title_label)
         self.add_widget(title_section)
 
-        # Status Bar and Menu Options Layout (using a horizontal layout for main content)
-        content_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.7), spacing=dp(20)) # Main content area
+        self.add_widget(Widget(size_hint_y=None, height=dp(20)))
+        # Add spacer after title
+        self.add_widget(Widget(size_hint_y=None, height=dp(60)))
 
-        # Left side: Status Bar and "Read Sensor" (mock, just for visual layout)
-        left_panel = BoxLayout(orientation='vertical', size_hint=(0.4, 1), spacing=dp(10))
+        # Main Content Area (Status Bar, Status Label, Breakdown)
+        main_content = BoxLayout(orientation='vertical', size_hint=(1, 1), spacing=dp(-10))
         
-        # Status Label (mock, as it's the main screen)
+        # Add top spacer to move content down
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(50)))
+        
+        # Status Label
         self.status_label = Label(text=f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] . . .", markup=True,
-                                   font_size='18sp', font_name=HANDWRITTEN_FONT, size_hint=(1, None), height=dp(30))
+                                   font_size='18sp', font_name='Roboto', size_hint=(1, None), height=dp(30))
         self.status_label.bind(size=self.status_label.setter('text_size'))
-        left_panel.add_widget(self.status_label)
-        left_panel.add_widget(Widget(size_hint_y=7))
+        main_content.add_widget(self.status_label)
+        
         # Status Bar
-        status_bar_container = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, 0.5))
+        status_bar_container = AnchorLayout(anchor_x='center', anchor_y='center', size_hint=(1, 0.3))
         self.status_bar = StatusColorBar(size_hint=(None, None), size=(dp(70), dp(220)))
         status_bar_container.add_widget(self.status_bar)
-        left_panel.add_widget(status_bar_container)
-        left_panel.add_widget(Widget(size_hint_y=None, height=dp(100))) 
-
-
-
-        # "Read Sensor" Button (mock, no actual reading here)
-        read_sensor_btn = SketchButton(text="[b]Read Sensor[/b]", markup=True, size_hint=(1, None),
-                                        height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
+        main_content.add_widget(status_bar_container)
+        
+        # Add spacer between status bar and buttons
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(160)))
+        
+        # Action Buttons Section
+        action_buttons = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(60), spacing=dp(40))
+        
+        # Read Sensor Button
+        read_sensor_btn = SketchButton(text="[b]Read Sensor[/b]", markup=True, size_hint=(1, 1),
+                                        font_size='16sp', font_name='Roboto')
         read_sensor_btn.bind(on_release=self.start_sensor_simulation)
-        left_panel.add_widget(read_sensor_btn)
-
-        content_layout.add_widget(left_panel)
-
-        # Reset Button
-        reset_btn = SketchButton(text="[b]Reset Sensor[/b]", markup=True, size_hint=(1, None),
-                         height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
+        action_buttons.add_widget(read_sensor_btn)
+        
+        # Reset Sensor Button
+        reset_btn = SketchButton(text="[b]Reset Sensor[/b]", markup=True, size_hint=(1, 1),
+                         font_size='16sp', font_name='Roboto')
         reset_btn.bind(on_release=self.reset_sensor_readings)
-        left_panel.add_widget(reset_btn)
+        action_buttons.add_widget(reset_btn)
+        
+        main_content.add_widget(action_buttons)
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(20)))
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(20)))
 
-
-
-        # Right side: Menu Options
-        menu_options_layout = BoxLayout(orientation='vertical', size_hint=(0.4, .4), spacing=dp(15), padding=(dp(10), dp(0), dp(10), dp(0)))
-        menu_options_layout.add_widget(Widget(size_hint_y=None, height=dp(50))) 
-        menu_options_layout.add_widget(Label(text="[b]Menu Options[/b]", markup=True,
-                                             font_size='18sp', font_name=HANDWRITTEN_FONT,
-                                             halign='left', valign='bottom',
-                                             color=SKETCH_COLOR, size_hint=(1, None), height=dp(30)))
-
-
-        options = ["Call Doctor", "History Log", "Detailed History Graph", "Sensor Graph", "Health Info"]
-        for opt in options:
-            btn = SketchButton(text=opt, size_hint_y=None, height=dp(40),
-                               font_name=HANDWRITTEN_FONT, font_size='16sp',
-                               halign='center', text_size=(dp(250),None))
-
-            # Bind 'Sensor Graph' to navigate to CreatConnectUI
-            if opt == "Sensor Graph":
-                btn.bind(on_release=self.go_to_sensor_graph)
-            menu_options_layout.add_widget(btn)
-
-        # Add a flexible spacer to push buttons to top
-        # menu_options_layout.add_widget(Widget())
-
-        content_layout.add_widget(menu_options_layout)
-
-        self.add_widget(content_layout) # Add the main content layout
-
-        # Bottom sections: Breakdown and Share
-        # This breakdown label will be updated by update_menu_status
+        # Add spacer between buttons and breakdown
+        main_content.add_widget(Widget(size_hint_y=None, height=dp(20)))
+        
+        # Breakdown Label (below buttons)
         self.breakdown_label = Label(text=f"[color={SKETCH_COLOR_HEX}]Breakdown: No data yet.[/color]", markup=True,
-                                font_size='15sp', font_name=HANDWRITTEN_FONT,
+                                font_size='15sp', font_name='Roboto',
                                 halign='left', valign='top', size_hint_y=None, height=dp(100))
         self.breakdown_label.bind(size=self.breakdown_label.setter('text_size'))
-        self.add_widget(self.breakdown_label)
+        main_content.add_widget(self.breakdown_label)
+        
+        # Add flexible spacer to push content up
+       # main_content.add_widget(Widget())
+        
+        self.add_widget(main_content)
 
-        share_button = SketchButton(text="[b]Share with Doctor[/b]", markup=True, size_hint=(1, None),
-                                     height=dp(50), font_size='18sp', font_name=HANDWRITTEN_FONT)
-        share_button.bind(on_press=self.share_with_doctor) # implement this later
-        self.add_widget(share_button)
+        # Bottom Navigation Bar
+        bottom_nav = BoxLayout(orientation='horizontal', size_hint=(1, None), height=dp(80), 
+                              spacing=dp(10), padding=[dp(10), dp(10), dp(10), dp(10)])
+        
+        # Navigation Icons with proper icons
+        nav_items = [
+            ("History Log", "history_icon.png", self.go_to_history_log),
+            ("Sensor Graph", "graph_icon.png", self.go_to_sensor_graph),
+            ("Health Info", "health_info.png", self.go_to_health_info),
+            ("Contact Doctor", "contact_doctor.png", self.contact_doctor)
+        ]
+        
+        for text, icon, callback in nav_items:
+            nav_item = NavButton(text=text, icon=icon, callback=callback)
+            bottom_nav.add_widget(nav_item)
+
+        self.add_widget(bottom_nav)
 
         # Bind to screen entry to update status
         self.bind(on_kv_post=self._on_kv_post) # This event fires when the widget is fully built and added
@@ -395,6 +447,10 @@ class MenuScreen(BoxLayout):
             print("✅ Sensor graph screen cleared.")
         except Exception as e:
             print(f"❌ Failed to clear sensor screen: {e}")
+        
+        # Update status message
+        self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] [b]Reset Complete[/b]"
+        self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]Breakdown: All readings cleared. Ready for new data.[/color]"
 
     def _on_kv_post(self, instance):
         # Schedule update to happen after the widget is fully laid out
@@ -404,33 +460,33 @@ class MenuScreen(BoxLayout):
     def update_menu_status(self, *args):
         app = App.get_running_app()
         
-        # Calculate the average creatinine from all readings
-        average_creatinine = 0.0
+        # Get the most recent creatinine reading
+        latest_creatinine = 0.0
         if app.all_creatinine_readings:
-            # Ensure app.all_creatinine_readings is not empty before calculating sum and average
-            average_creatinine = sum(app.all_creatinine_readings) / len(app.all_creatinine_readings)
+            latest_creatinine = app.all_creatinine_readings[-1]
             
-        print(f"MenuScreen: Updating status. Latest creatinine (for info): {app.all_creatinine_readings[-1]:.2f}" if app.all_creatinine_readings else "MenuScreen: No latest creatinine.") # Keep for debug
-        print(f"MenuScreen: Updating status. Average creatinine: {average_creatinine:.2f}") # DEBUG PRINT
+        print(f"MenuScreen: Updating status. Latest creatinine: {latest_creatinine:.2f}" if app.all_creatinine_readings else "MenuScreen: No latest creatinine.") # Keep for debug
+        print(f"MenuScreen: Total readings available: {len(app.all_creatinine_readings)}") # DEBUG PRINT
+        print(f"MenuScreen: All readings: {app.all_creatinine_readings}") # DEBUG PRINT
         
         status_text = "[b][color={}]Status:[/color][/b] ".format(SKETCH_COLOR_HEX)
         status_color = ""
         current_status_category = 'none' # Initialize for StatusColorBar
         breakdown_message = ""
 
-        if average_creatinine > 1.3:
+        if latest_creatinine > 1.3:
             current_status = "High"
             status_color = "cc0000" # Red for high
             current_status_category = 'high'
             breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your creatinine levels are [color=cc0000]higher than normal[/color] on average.\n" \
+                                 "• Your most recent creatinine level is [color=cc0000]higher than normal[/color].\n" \
                                  "• Consult a healthcare professional for further evaluation."
-        elif average_creatinine < 0.6 and app.all_creatinine_readings: # Ensure it's not the initial 0.0 placeholder before any readings
+        elif latest_creatinine < 0.6 and app.all_creatinine_readings: # Ensure it's not the initial 0.0 placeholder before any readings
             current_status = "Low"
             status_color = "ff9900" # Orange for low
             current_status_category = 'low'
             breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your creatinine levels are [color=ff9900]lower than normal[/color] on average.\n" \
+                                 "• Your most recent creatinine level is [color=ff9900]lower than normal[/color].\n" \
                                  "• Consult a healthcare professional for further evaluation."
         elif not app.all_creatinine_readings: # No data yet, or initial state
             current_status = "No Data Yet"
@@ -444,7 +500,7 @@ class MenuScreen(BoxLayout):
             status_color = "00aa00" # Green for normal
             current_status_category = 'normal'
             breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your creatinine levels are within the normal range on average.\n" \
+                                 "• Your most recent creatinine level is within the normal range.\n" \
                                  "• No immediate abnormalities detected.\n" \
                                  "• Continue monitoring as advised by your doctor."
         
@@ -457,8 +513,38 @@ class MenuScreen(BoxLayout):
 
 
     def go_to_sensor_graph(self, instance):
+        print("MenuScreen: Sensor Graph button clicked!")
         app = App.get_running_app()
-        app.root.current = 'sensor_graph_screen' # Name of the screen holding CreatConnectUI
+        print(f"MenuScreen: Current screen before navigation: {app.root.current}")
+        print(f"MenuScreen: Available screens: {[screen.name for screen in app.root.screens]}")
+        
+        try:
+            app.root.current = 'sensor_graph_screen'
+            print(f"MenuScreen: Successfully navigated to sensor_graph_screen. Current screen: {app.root.current}")
+            
+        except Exception as e:
+            print(f"MenuScreen: Error navigating to sensor graph: {e}")
+
+    def go_to_history_log(self, instance):
+        print("MenuScreen: History Log button clicked!")
+        app = App.get_running_app()
+        try:
+            app.root.current = 'history_log_screen'
+            print(f"MenuScreen: Successfully navigated to history_log_screen. Current screen: {app.root.current}")
+        except Exception as e:
+            print(f"MenuScreen: Error navigating to history log screen: {e}")
+
+    def go_to_health_info(self, instance):
+        print("MenuScreen: Health Info button clicked!")
+        app = App.get_running_app()
+        try:
+            app.root.current = 'health_info_screen'
+            print(f"MenuScreen: Successfully navigated to health_info_screen. Current screen: {app.root.current}")
+        except Exception as e:
+            print(f"MenuScreen: Error navigating to health info screen: {e}")
+
+    def contact_doctor(self, instance):
+        print("Contacting doctor (feature not implemented yet)")
 
     def share_with_doctor(self, instance):
         print("Sharing with doctor (feature not implemented yet)")

@@ -9,6 +9,8 @@ from kivy.core.text import LabelBase # Import LabelBase for font registration
 from menu_screen import MenuScreen # Ensure this file and class exist
 from user_interface import CreatConnectUI # The main sensor UI
 from visual import VisualScreen # Ensure this file and class exist
+from health_info_screen import HealthInfoScreen # Health information screen
+from history_log_screen import HistoryLogScreen # History log screen
 
 import os
 
@@ -45,6 +47,16 @@ class CreatConnectApp(App):
         visual_screen = Screen(name='visual_screen')
         visual_screen.add_widget(VisualScreen()) # VisualScreen should be defined in visual.py
         sm.add_widget(visual_screen)
+
+        # Create the Health Info Screen
+        health_info_screen = Screen(name='health_info_screen')
+        health_info_screen.add_widget(HealthInfoScreen())
+        sm.add_widget(health_info_screen)
+
+        # Create the History Log Screen
+        history_log_screen = Screen(name='history_log_screen')
+        history_log_screen.add_widget(HistoryLogScreen())
+        sm.add_widget(history_log_screen)
 
         # Set the initial screen to the menu
         sm.current = 'menu_screen'
