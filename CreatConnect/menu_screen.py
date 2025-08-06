@@ -465,58 +465,52 @@ class MenuScreen(BoxLayout):
         Clock.schedule_once(self.update_menu_status, 0)
 
     def update_menu_status(self, *args):
+        from sensor_input import load_health_info
+        from personalization import get_status, get_breakdown
+
         app = App.get_running_app()
-        
-        # Get the most recent creatinine reading
-        latest_creatinine = 0.0
-        if app.all_creatinine_readings:
-            latest_creatinine = app.all_creatinine_readings[-1]
-            
-        print(f"MenuScreen: Updating status. Latest creatinine: {latest_creatinine:.2f}" if app.all_creatinine_readings else "MenuScreen: No latest creatinine.") # Keep for debug
-        print(f"MenuScreen: Total readings available: {len(app.all_creatinine_readings)}") # DEBUG PRINT
-        print(f"MenuScreen: All readings: {app.all_creatinine_readings}") # DEBUG PRINT
-        
-        status_text = "[b][color={}]Status:[/color][/b] ".format(SKETCH_COLOR_HEX)
-        status_color = ""
-        current_status_category = 'none' # Initialize for StatusColorBar
-        breakdown_message = ""
+    
+        if not app.all_creatinine_readings:
+            # No data yet
+            self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] [b]No Data Yet[/b]"
+            self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}][b]Breakdown:[/b]\n• Data not yet available.\n• Read sensor for an update.[/color]"
+            self.status_bar.current_status_category = 'none'
+            return
 
-        if latest_creatinine > 1.3:
-            current_status = "High"
-            status_color = "cc0000" # Red for high
-            current_status_category = 'high'
-            breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your most recent creatinine level is [color=cc0000]higher than normal[/color].\n" \
-                                 "• Consult a healthcare professional for further evaluation."
-        elif latest_creatinine < 0.6 and app.all_creatinine_readings: # Ensure it's not the initial 0.0 placeholder before any readings
-            current_status = "Low"
-            status_color = "ff9900" # Orange for low
-            current_status_category = 'low'
-            breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your most recent creatinine level is [color=ff9900]lower than normal[/color].\n" \
-                                 "• Consult a healthcare professional for further evaluation."
-        elif not app.all_creatinine_readings: # No data yet, or initial state
-            current_status = "No Data Yet"
-            status_color = SKETCH_COLOR_HEX # Use sketch color for no data
-            current_status_category = 'none'
-            breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Data not yet available.\n" \
-                                 "• Read sensor for an update."
-        else: # Normal range (0.6 to 1.3, inclusive)
-            current_status = "Normal"
-            status_color = "00aa00" # Green for normal
-            current_status_category = 'normal'
-            breakdown_message = "[b]Breakdown:[/b]\n" \
-                                 "• Your most recent creatinine level is within the normal range.\n" \
-                                 "• No immediate abnormalities detected.\n" \
-                                 "• Continue monitoring as advised by your doctor."
-        
-        self.status_label.text = status_text + f"[b][color={status_color}]{current_status}[/color][/b]"
-        self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]{breakdown_message}[/color]" # Update breakdown label
+        latest_creatinine = app.all_creatinine_readings[-1]
+        print(f"MenuScreen: Updating status. Latest creatinine: {latest_creatinine:.2f}")
+    
+        # Load health info
+        info = load_health_info()
+        age = info["age"]
+        weight = info["weight"]
+        gender = info["gender"]
 
-        # Update the StatusColorBar's current_status_category property
-        self.status_bar.current_status_category = current_status_category
-        print(f"MenuScreen: Set status_bar.current_status_category to '{current_status_category}' based on average.") # DEBUG PRINT
+        # Get personalized status
+        status = get_status(latest_creatinine, age, gender, weight)
+        breakdown = get_breakdown(status, age, gender, weight)
+
+        # Color settings
+        status_color = {
+            "High": "cc0000",
+            "Low": "ff9900",
+            "Normal": "00aa00"
+        }.get(status, SKETCH_COLOR_HEX)
+
+        status_category = {
+            "High": "high",
+            "Low": "low",
+            "Normal": "normal"
+        }.get(status, "none")
+
+        # Update status label
+        self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] [b][color={status_color}]{status}[/color][/b]"
+
+        # Update breakdown label with personalized breakdown
+        self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}][b]Breakdown:[/b]\n• {breakdown}[/color]"
+
+        # Update status bar highlight
+        self.status_bar.current_status_category = status_category
 
 
     def go_to_sensor_graph(self, instance):
