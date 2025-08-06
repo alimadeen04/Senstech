@@ -5,26 +5,28 @@ Supports:
 - Bluetooth Low Energy (BLE)
 - Serial Communication (USB/UART)
 '''
-
 import pandas as pd
 import random
 import os
 
-# Directory where your 3 CSVs are saved
-DATA_DIR = os.path.join(os.path.dirname(__file__), "simulated_data") # update this as needed
+DATA_DIR = os.path.join(os.path.dirname(__file__), "simulated_data")
 
 def read_simulated_sensor_data():
-    sim_files = ["sensor_low.csv", "sensor_normal.csv", "sensor_high.csv"]
-    chosen_file = random.choice(sim_files)
+    sim_files = [
+        ("Low_Creatinine_0.40mgdL.csv", 0.40),
+        ("Normal_Creatinine_1.00mgdL.csv", 1.00),
+        ("High_Creatinine_2.50mgdL.csv", 2.50)
+    ]
+    
+    chosen_file, known_creatinine = random.choice(sim_files)
     file_path = os.path.join(DATA_DIR, chosen_file)
 
     df = pd.read_csv(file_path)
-    peak_sensor_value = df["Sensor Reading"].max()
+    peak_current = df["Current (μA)"].max()
 
-    # Convert to creatinine (replace 1.75 with real calibration factor!!!!!)
-    creatinine = peak_sensor_value
+    # Use known value instead of calculating from peak_current
+    creatinine = known_creatinine
 
-    # Categorize
     if creatinine < 0.6:
         status = "Low"
     elif creatinine <= 1.3:
@@ -37,5 +39,7 @@ def read_simulated_sensor_data():
         "file": chosen_file,
         "creatinine": creatinine,
         "status": status,
-        "peak_signal": peak_sensor_value
+        "peak_signal": peak_current
     }
+
+

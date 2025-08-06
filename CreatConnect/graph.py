@@ -11,37 +11,40 @@ graph.py - Handles graphing of historical creatinine levels.
 
 from kivy_garden.graph import Graph, LinePlot
 from kivy.uix.boxlayout import BoxLayout
-import time
 
 class CreatinineGraph(BoxLayout):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         self.graph = Graph(
-            xlabel='Time (s)',
-            ylabel='Creatinine (mg/dL)',
-            x_ticks_minor=5,
-            x_ticks_major=10,
-            y_ticks_major=0.5,
+            xlabel='Voltage (V)',
+            ylabel='Current (μA)',
+            xmin=0.0,
+            xmax=1.0,
+            ymin = -6.0,
+            ymax = 7.0,
+            x_ticks_minor=1,
+            x_ticks_major=0.1,
+            y_ticks_major=1,
             y_grid_label=True,
             x_grid_label=True,
             padding=5,
             x_grid=True,
             y_grid=True,
-            xmin=0,
-            xmax=120,
-            ymin=0.0,
-            ymax=3.0,
-            background_color = (1,1,1,1),
-            tick_color = (0,0,0,1),
-            label_options = {'color': (0,0,0,1), 'bold': True}
+            background_color=(1,1,1,1),
+            tick_color=(0,0,0,1),
+            label_options={'color': (0,0,0,1), 'bold': True}
         )
-        self.plot = LinePlot(line_width=1.5, color=[1, 0, 0, 1])
+
+        self.plot = LinePlot(line_width=1.5, color=[1, 0, 0, 1])  # ✅ Make sure this line exists
         self.graph.add_plot(self.plot)
         self.add_widget(self.graph)
-        
+
 
     def update_graph(self, x_vals, y_vals):
         self.plot.points = list(zip(x_vals, y_vals))
 
     def clear(self):
         self.plot.points = []
+
+     

@@ -418,6 +418,12 @@ class MenuScreen(BoxLayout):
         app.sim_status = result["status"]
         app.sim_peak_signal = result["peak_signal"]
 
+        # ✅ Add the new creatinine value to the log
+        app.all_creatinine_readings.append(app.sim_creatinine)
+
+        # ✅ Schedule status update for menu screen immediately
+        Clock.schedule_once(lambda dt: self.update_menu_status(), 0.1)
+
         app.sim_index = 0
         app.sim_start_time = time.time()
 
@@ -425,7 +431,8 @@ class MenuScreen(BoxLayout):
         app.root.current = 'sensor_graph_screen'
 
         # Start simulation on the Sensor Graph screen
-        Clock.schedule_once(app.root.get_screen('sensor_graph_screen').children[0].start_real_time_plotting, 0)
+        Clock.schedule_once(app.root.get_screen('sensor_graph_screen').children[0].update_sensor_reading, 0)
+
 
 
 

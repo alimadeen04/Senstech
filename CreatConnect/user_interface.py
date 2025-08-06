@@ -143,39 +143,59 @@ class CreatConnectUI(BoxLayout):
 
     def update_sensor_reading(self, instance=None):
         from sensor_input import read_simulated_sensor_data
+        print("🔄 Reading sensor...")
         sim_result = read_simulated_sensor_data()
         self.simulated_df = sim_result["data"]
-        self.sim_index = 0
-        self.sim_total_steps = len(self.simulated_df)
-        self.creatinine_peak = sim_result["creatinine"]
-        self.peak_status = sim_result["status"]
-        self.file_used = sim_result["file"]
+        print(f"📂 File: {sim_result['file']}")
+        print(f"🧪 Creatinine: {sim_result['creatinine']} ({sim_result['status']})")
 
-        self.readings = []
-        self.timestamps = []
-        self.start_time = time.time()
+        # Extract full CV data
+        voltages = list(self.simulated_df["Voltage (V)"])
+        currents = list(self.simulated_df["Current (μA)"])
+        self.graph.update_graph(voltages, currents)  # 🔴 Plot entire curve immediately
 
-        # Clear graph
-        self.graph.clear()
-        # Schedule 1 update/sec (or adjust for faster animation)
-        self.sim_timer = Clock.schedule_interval(self._plot_next_sim_point, 1)
+        # Use the simulated creatinine value
+        creatinine_val = sim_result["creatinine"]
+        self.creatinine_label.text = f"[b][color=000000]Creatinine: {creatinine_val:.2f} mg/dL[/color][/b]"
 
-    def _plot_next_sim_point(self, dt):
-        if self.sim_index >= self.sim_total_steps:
-            Clock.unschedule(self.sim_timer)
-            self.sim_timer = None
+        # Set status color and label
+        if creatinine_val < 0.6:
+            color = "cc0000"
+            status = "Low"
+        elif creatinine_val <= 1.3:
+            color = "00aa00"
+            status = "Normal"
+        else:
+            color = "ff9900"
+            status = "High"
 
-            self._finalize_sensor_reading()
-            return
+        self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b][color={color}]{status}[/color][/b]"
 
-        value = self.simulated_df.iloc[self.sim_index]["Sensor Reading"] * 1.75  # Convert to creatinine
-        timestamp = self.sim_index
+        # Save reading to history
+        app = App.get_running_app()
+        if app is not None:
+            if not hasattr(app, 'all_creatinine_readings'):
+                app.all_creatinine_readings = []
+            app.all_creatinine_readings.append(creatinine_val)
+            print("✅ Sensor reading complete and graph updated.")
 
-        self.readings.append(value)
-        self.timestamps.append(timestamp)
 
-        self.graph.update_graph(self.timestamps, self.readings)
-        self.sim_index += 1
+
+    # def _plot_next_sim_point(self, dt):
+        # if self.sim_index >= self.sim_total_steps:
+            # Clock.unschedule(self.sim_timer)
+           # self.sim_timer = None
+            # self._finalize_sensor_reading()
+           #  return
+
+        # voltage = self.sim_df.iloc[self.sim_index]["Voltage (V)"]
+        # current = self.simulated_df.iloc[self.sim_index]["Current (μA)"]
+
+        # self.timestamps.append(voltage)
+        # self.readings.append(current)
+
+        # self.graph.update_graph(self.timestamps, self.readings)
+        # self.sim_index += 1
 
     def _finalize_sensor_reading(self):
         peak_value = max(self.readings)
@@ -211,14 +231,14 @@ class CreatConnectUI(BoxLayout):
 
         Clock.schedule_once(delayed_screen_switch, 0.5)
 
-    def start_real_time_plotting(self, dt):
-        app = App.get_running_app()
-        self.readings = []
-        self.timestamps = []
-        self.start_time = time.time()
-        self.sim_index = 0
-        self.sim_df = app.simulated_df
-        self.sim_timer = Clock.schedule_interval(self.plot_next_point, 1)
+    # def start_real_time_plotting(self, dt):
+        # app = App.get_running_app()
+        # self.readings = []
+        # self.timestamps = []
+        # self.start_time = time.time()
+        # self.sim_index = 0
+        # self.sim_df = app.simulated_df
+        # self.sim_timer = Clock.schedule_interval(self.plot_next_point, 1)
 
     def plot_next_point(self, dt):
         if self.sim_index >= len(self.sim_df):
@@ -226,7 +246,7 @@ class CreatConnectUI(BoxLayout):
             self.finish_plotting()
             return
 
-        raw_val = self.sim_df.iloc[self.sim_index]["Sensor Reading"]
+        raw_val = self.sim_df.iloc[self.sim_index]["Current (μA)"]
         creatinine = raw_val * 1.75
 
         self.readings.append(creatinine)
@@ -316,6 +336,9 @@ class CreatConnectUI(BoxLayout):
                 print(f"❌ Error updating history log: {e}")
         else:
             print("❌ Could not access ScreenManager for history log update")
+
+
+
 
 
 
