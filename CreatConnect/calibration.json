@@ -1,0 +1,13 @@
+{
+  "type": "inverse",
+  "coeffs": [0.0, -565.0],         
+  "x_unit": "uA",
+  "y_unit": "mM",
+  "target_unit": "mg/dL",
+  "mw_g_per_mol": 113.12,
+  "use_abs_current": false,         
+  "x_offset_uA": 0.0,
+  "min_abs_uA": 1.0,                 
+  "decimals": 2,
+  "valid_range_uA": [-100, 100]
+}

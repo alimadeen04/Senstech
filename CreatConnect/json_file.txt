@@ -1,0 +1,14 @@
+"""
+json file 
+"""
+
+{
+  "type": "linear",                   
+  "coeffs": [0, 565],              
+  "x_unit": "uA",
+  "y_unit": "mm/L",
+  "decimals": 3,
+  "valid_range_uA": [-50, 50]          
+}
+
+

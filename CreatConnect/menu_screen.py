@@ -13,6 +13,8 @@ from kivy.properties import StringProperty
 from kivy.core.text import Label as CoreLabel
 import time
 from graph import CreatinineGraph
+from port_finder_rodeo import find_rodeostat_port_by_device_id
+
 
 # Constants
 SKETCH_COLOR = (0.2, 0.2, 0.2, 1)  # Dark grey for sketch lines
@@ -32,6 +34,23 @@ STATUS_HIGHLIGHT_NONE_COLOR = (0, 0, 0, 0)  # Transparent
 
 # Sketch line width
 SKETCH_LINE_WIDTH = 2
+
+# === Data source switch for your team ===
+DATA_SOURCE = "potentiostat"   # or "simulation"
+
+# === Potentiostat CV config ===
+RODEO_DEVICE_ID = 42           # the number you set in Step 1
+PSTAT_CURR_RANGE = "100uA"
+PSTAT_SAMPLE_PERIOD_MS = 10
+PSTAT_PARAMS = {
+    "quietValue": 0.0,
+    "quietTime": 1000,
+    "amplitude": 0.4,
+    "offset": 0.0,
+    "period": 1000,
+    "numCycles": 2,
+    "shift": 0.0
+}
 
 class NavButton(BoxLayout):
     def __init__(self, text, icon, callback, **kwargs):
@@ -357,7 +376,7 @@ class MenuScreen(BoxLayout):
         # Read Sensor Button
         read_sensor_btn = SketchButton(text="[b]Read Sensor[/b]", markup=True, size_hint=(1, 1),
                                         font_size='16sp', font_name='Roboto')
-        read_sensor_btn.bind(on_release=self.start_sensor_simulation)
+        read_sensor_btn.bind(on_release=self.start_read_sensor)
         action_buttons.add_widget(read_sensor_btn)
         
         # Reset Sensor Button
@@ -549,3 +568,29 @@ class MenuScreen(BoxLayout):
 
     def share_with_doctor(self, instance):
         print("Sharing with doctor (feature not implemented yet)")
+
+    def start_read_sensor(self, instance):
+        app = App.get_running_app()
+        app.root.current = 'sensor_graph_screen'
+        sensor_ui = app.root.get_screen('sensor_graph_screen').children[0]
+
+        if DATA_SOURCE == "potentiostat":
+            try:
+                port = find_rodeostat_port_by_device_id(RODEO_DEVICE_ID)
+                sensor_ui.start_pstat_cv(
+                    port=port,
+                    params=PSTAT_PARAMS,
+                    curr_range=PSTAT_CURR_RANGE,
+                    sample_period_ms=PSTAT_SAMPLE_PERIOD_MS
+                )
+                self.status_bar.current_status_category = 'none'
+                self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] [b]Running CV...[/b]"
+                self.breakdown_label.text = f"[color={SKETCH_COLOR_HEX}]Breakdown: potentiostat test in progress.[/color]"
+            except Exception as e:
+                print(f"❌ Could not start potentiostat: {e}")
+                self.status_label.text = f"[b][color={SKETCH_COLOR_HEX}]Status:[/color][/b] [b]Device not found[/b]"
+                # Optional: fallback to your simulation
+                # self.start_sensor_simulation(instance)
+        else:
+            self.start_sensor_simulation(instance)
+

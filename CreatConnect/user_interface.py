@@ -19,34 +19,42 @@ from kivy.uix.widget import Widget
 import sensor_input # Ensure this file exists and has read_sensor_data()
 from graph import CreatinineGraph
 
+import threading, numpy as np
+from kivy.clock import Clock
+from pstat_driver import run_cv_blocking
+from calibration import Calibrator
+from sensor_pipeline import concentration_from_cv
+from personalization import get_status, get_breakdown
+import sensor_input  # for load_health_info()
+
 Window.clearcolor = (1, 1, 1, 1) # Set window clear color to white
 
 # StyleCard for a clean, rounded rectangular look
 class StyleCard(BoxLayout):
     def __init__(self, **kwargs):
-       super().__init__(orientation='vertical', padding=20, spacing=10, **kwargs)
-       with self.canvas.before:
-          Color(1,1,1,1) # White background for the card
-          self.bg = RoundedRectangle(radius=[10], size=self.size, pos=self.pos)
-       self.bind(pos=self.update_bg, size=self.update_bg)
+        super().__init__(orientation='vertical', padding=20, spacing=10, **kwargs)
+        with self.canvas.before:
+            Color(1,1,1,1) # White background for the card
+            self.bg = RoundedRectangle(radius=[10], size=self.size, pos=self.pos)
+        self.bind(pos=self.update_bg, size=self.update_bg)
     
     def update_bg(self, *args):
-      self.bg.size = self.size
-      self.bg.pos = self.pos
+        self.bg.size = self.size
+        self.bg.pos = self.pos
 
 class CreatConnectUI(BoxLayout):
     def make_wrapped_label(self, text, bold=False):
-     return Label(
-        text=text,
-        markup=True,
-        font_size='15sp',
-        size_hint_y=None,
-        halign='left',
-        valign='top',
-        color=(0.1, 0.1, 0.1, 1),
-        text_size=(self.width - 40, None),
-        height=140 if bold else 120
-    )
+        return Label(
+            text=text,
+            markup=True,
+            font_size='15sp',
+            size_hint_y=None,
+            halign='left',
+            valign='top',
+            color=(0.1, 0.1, 0.1, 1),
+            text_size=(self.width - 40, None),
+            height=140 if bold else 120
+        )
 
     def __init__(self, **kwargs):
         super().__init__(orientation='vertical', spacing=20, padding=20, **kwargs)
@@ -85,7 +93,6 @@ class CreatConnectUI(BoxLayout):
         self.add_widget(header_container)
         # --- End Top Header Section ---
 
-
         # Status and Creatinine Readings (inside a StyleCard for visual grouping)
         status_creatinine_card = StyleCard(size_hint_y=None, height=120) 
 
@@ -93,20 +100,18 @@ class CreatConnectUI(BoxLayout):
         status_creatinine_layout = BoxLayout(orientation='vertical', spacing=5)
         
         self.status_label = Label(text="[b][color=000000]Status:[/color][/b] [b][color=00aa00] [/color][/b]",
-            markup=True, font_size='18sp', size_hint_y=None, height=40)
+                                  markup=True, font_size='18sp', size_hint_y=None, height=40)
         self.status_label.bind(size=self.status_label.setter('text_size'))
         status_creatinine_layout.add_widget(self.status_label)
    
-        # FIX START: Initialize creatinine_label with placeholder text
+        # Initialize creatinine_label with placeholder text
         self.creatinine_label = Label(text="[b][color=000000]Creatinine: -- mg/dL[/color][/b]",
-                              markup=True, font_size='18sp', size_hint_y=None, height=50) 
-        # FIX END
+                                      markup=True, font_size='18sp', size_hint_y=None, height=50) 
         self.creatinine_label.bind(size=self.creatinine_label.setter('text_size'))
         status_creatinine_layout.add_widget(self.creatinine_label)
         
         status_creatinine_card.add_widget(status_creatinine_layout)
         self.add_widget(status_creatinine_card) # Add the card containing status and creatinine
-
 
         # Graph (inside its own StyleCard)
         graph_card = StyleCard(size_hint=(1, 1)) # Graph takes remaining vertical space
@@ -125,12 +130,120 @@ class CreatConnectUI(BoxLayout):
         self.sim_total_steps = 120
         self.sim_timer = None
 
+    # === RUN POTENTIOSTAT (CV) ===
+    def start_pstat_cv(self, port, params, curr_range="100uA", sample_period_ms=10):
+        """Called by MenuScreen.start_read_sensor"""
+        # Visual reset
+        self.graph.clear()
+        self.status_label.text = "[b][color=000000]Status:[/color][/b] [b]Running CV...[/b]"
+        self.creatinine_label.text = "[b][color=000000]Creatinine: -- mg/dL [/color][/b]"
+
+        self._cal = Calibrator("calibration.json")
+
+        def worker():
+            try:
+                t, V, I = run_cv_blocking(
+                    port=port,
+                    params=params,
+                    curr_range=curr_range,
+                    sample_period_ms=sample_period_ms,
+                    name="cyclic",
+                    show_progress=True
+                )
+            except Exception as e:
+                Clock.schedule_once(lambda dt: self._on_pstat_error(str(e)), 0)
+                return
+
+            Clock.schedule_once(lambda dt: self._on_pstat_done(t, V, I), 0)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_pstat_error(self, msg: str):
+        self.status_label.text = f"[b][color=000000]Status:[/color][/b] [b][color=cc0000]Error[/color][/b]"
+        self.creatinine_label.text = f"[b][color=000000]{msg}[/color][/b]"
+        print("Potentiostat error:", msg)
+
+    def _autoscale_graph(self, V_volts, I_uA):
+        g = self.graph.graph
+        vmin, vmax = float(np.min(V_volts)), float(np.max(V_volts))
+        imin, imax = float(np.min(I_uA)), float(np.max(I_uA))
+        if vmin == vmax: vmax = vmin + 1.0
+        if imin == imax: imax = imin + 1.0
+        padI = 0.05 * (imax - imin)
+        g.xmin, g.xmax = vmin, vmax
+        g.ymin, g.ymax = imin - padI, imax + padI
+
+    def _on_pstat_done(self, t, V, I):
+        # Ensure numpy arrays
+        V = np.asarray(V, dtype=float)
+        I = np.asarray(I, dtype=float)
+
+        # Units: many APIs return Amps. Convert to µA if values are small.
+        if np.nanmax(np.abs(I)) < 1e-3:
+            I_uA = I * 1e6
+        else:
+            I_uA = I  # already in µA
+
+        # Plot entire curve (V vs I)
+        try:
+            self._autoscale_graph(V, I_uA)
+            self.graph.update_graph(V.tolist(), I_uA.tolist())
+        except Exception as e:
+            print("Plotting error:", e)
+
+        # === Peak → concentration via your calibration (use REDUCTION peak) ===
+        conc_mg_dL, Ip_uA, Vp_mV, peak_idx = concentration_from_cv(
+            V, I_uA, self._cal, smooth_k=5, peak="reduction"
+        )  # CHANGED: unpack 4 values
+
+        if conc_mg_dL is None:
+            self._on_pstat_error("No data captured.")
+            return
+
+        # Calibration debug printout (what value was used and how)
+        # try:
+            # dbg = self._cal.apply_debug(Ip_uA)
+            # print(
+                # f"[CAL DEBUG] peak_mode=reduction idx={peak_idx} "
+                # f"I_raw={dbg['x_raw_uA']:.3f} uA I_used={dbg['x_used_uA']:.3f} uA "
+                # f"offset={dbg['x_offset_uA']:.3f} uA denom={dbg['denom_uA'] if dbg['denom_uA'] is not None else '—'} uA "
+                # f"model={dbg['y_model']:.6f} {dbg['y_model_unit']} → out={dbg['y_out']:.3f} {dbg['y_out_unit']}"
+            # )
+            # Safety warning if the reduction peak wasn't actually negative
+            # if Ip_uA >= 0:
+                # print(f"[WARN] Expected reduction peak to be negative, got {Ip_uA:.3f} uA at idx={peak_idx}")
+        # except Exception as e:
+            # print("Cal debug failed:", e)
+
+        # Personalized status
+        info = sensor_input.load_health_info()
+        status = get_status(conc_mg_dL, info["age"], info["gender"], info["weight"])
+        color = {"Low":"cc0000", "Normal":"00aa00", "High":"ff9900"}.get(status,"000000")
+
+        self.status_label.text     = f"[b][color=000000]Status:[/color][/b] [b][color={color}]{status}[/color][/b]"
+        self.creatinine_label.text = f"[b][color=000000]Creatinine: {conc_mg_dL:.2f} mg/dL[/color][/b]"
+
+        # Save to app history
+        app = App.get_running_app()
+        if not hasattr(app, "all_creatinine_readings"):
+            app.all_creatinine_readings = []
+        app.all_creatinine_readings.append(float(conc_mg_dL))
+
+        # Push updates back to Menu + History Log
+        Clock.schedule_once(self._trigger_menu_status_update, 0.05)
+        Clock.schedule_once(self._update_history_log, 0.10)
+
+        # (Optional) Save a snapshot of the graph
+        try:
+            import os, datetime
+            os.makedirs("history_logs", exist_ok=True)
+            ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.graph.export_to_png(f"history_logs/CV_{ts}.png")
+        except Exception as e:
+            print("Could not export graph image:", e)
+
         # --- END CONSOLIDATED INITIALIZATION ---
         
-        # Schedule the first update immediately, then every 30 seconds
-     #   self.update_sensor_reading() # Call once at start to populate initial values
-     #   Clock.schedule_interval(self.update_sensor_reading, 30) # Schedule for future updates
-
     def toggle_trend_line(self, instance):
         print("Trend line toggle clicked (feature not implemented yet)")
 
@@ -179,24 +292,6 @@ class CreatConnectUI(BoxLayout):
             app.all_creatinine_readings.append(creatinine_val)
             print("✅ Sensor reading complete and graph updated.")
 
-
-
-    # def _plot_next_sim_point(self, dt):
-        # if self.sim_index >= self.sim_total_steps:
-            # Clock.unschedule(self.sim_timer)
-           # self.sim_timer = None
-            # self._finalize_sensor_reading()
-           #  return
-
-        # voltage = self.sim_df.iloc[self.sim_index]["Voltage (V)"]
-        # current = self.simulated_df.iloc[self.sim_index]["Current (μA)"]
-
-        # self.timestamps.append(voltage)
-        # self.readings.append(current)
-
-        # self.graph.update_graph(self.timestamps, self.readings)
-        # self.sim_index += 1
-
     def _finalize_sensor_reading(self):
         peak_value = max(self.readings)
         self.creatinine_label.text = f"[b][color=000000]Creatinine: {peak_value:.2f} mg/dL[/color][/b]"
@@ -230,15 +325,6 @@ class CreatConnectUI(BoxLayout):
             Clock.schedule_once(self._trigger_menu_status_update, 0.2)
 
         Clock.schedule_once(delayed_screen_switch, 0.5)
-
-    # def start_real_time_plotting(self, dt):
-        # app = App.get_running_app()
-        # self.readings = []
-        # self.timestamps = []
-        # self.start_time = time.time()
-        # self.sim_index = 0
-        # self.sim_df = app.simulated_df
-        # self.sim_timer = Clock.schedule_interval(self.plot_next_point, 1)
 
     def plot_next_point(self, dt):
         if self.sim_index >= len(self.sim_df):
@@ -296,7 +382,6 @@ class CreatConnectUI(BoxLayout):
 
         Clock.schedule_once(switch_and_update, 0.5) 
 
-       
     def _trigger_menu_status_update(self, dt):
         app = App.get_running_app()
         sm = app.root
@@ -335,21 +420,4 @@ class CreatConnectUI(BoxLayout):
             except Exception as e:
                 print(f"❌ Error updating history log: {e}")
         else:
-            print("❌ Could not access ScreenManager for history log update")
-
-
-
-
-
-
-
-
-
-
-
-       
-
-       
-
-
-       
+            print("❌ Could not access ScreenManager")
